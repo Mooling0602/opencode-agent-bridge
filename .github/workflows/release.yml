@@ -101,7 +101,20 @@ jobs:
 
       - name: Publish to npm (OIDC)
         if: steps.check.outputs.skip == 'false' && steps.npmcheck.outputs.npm-skip == 'false'
-        run: npx --yes --package npm@11 npm publish --access public
+        shell: bash
+        run: |
+          set +e
+          npx --yes --package npm@11 npm publish --access public > publish.log 2>&1
+          status=$?
+          set -e
+          if (( status != 0 )); then
+            if grep -q "E409" publish.log; then
+              echo "Version already published by a concurrent run, treating as success."
+            else
+              cat publish.log
+              exit 1
+            fi
+          fi
 
       - name: Prepare release notes
         if: steps.check.outputs.skip == 'false'
