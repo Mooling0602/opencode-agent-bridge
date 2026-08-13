@@ -1,12 +1,34 @@
 # opencode-agent-bridge
 
+[![npm version](https://img.shields.io/npm/v/opencode-agent-bridge)](https://www.npmjs.com/package/opencode-agent-bridge)
+[![npm downloads](https://img.shields.io/npm/dw/opencode-agent-bridge)](https://www.npmjs.com/package/opencode-agent-bridge)
+[![license](https://img.shields.io/npm/l/opencode-agent-bridge)](./LICENSE)
+
 OpenCode 插件：为多个 opencode 会话（agent）之间提供跨会话协作能力——派发任务、等待结果、完成通知与结果检查。功能由 [multi-agent-bridge](https://github.com/Mooling0602/multi-agent-bridge) 迁移而来，全部在 opencode 进程内完成（不派生额外服务器、不依赖外部配置）。
 
 ## 安装
 
-### 本地路径（开发/验证）
+### CLI 一键安装（推荐）
+
+```bash
+opencode plugin opencode-agent-bridge@latest --global
+```
+
+安装到当前项目则去掉 `--global`。该命令会从 npm 拉取包并自动写入 opencode 配置，重启 opencode 后生效。
+
+### 手动配置
 
 在 `opencode.jsonc`（全局 `~/.config/opencode/opencode.jsonc` 或项目 `opencode.json`）中：
+
+```jsonc
+{
+  "plugin": ["opencode-agent-bridge"]
+}
+```
+
+opencode 启动时自动安装 npm 插件；固定版本可写为 `"opencode-agent-bridge@0.1.1"`。
+
+### 本地路径（开发）
 
 ```jsonc
 {
@@ -14,21 +36,11 @@ OpenCode 插件：为多个 opencode 会话（agent）之间提供跨会话协�
 }
 ```
 
-加载规则：优先读取 `package.json` 的 `exports["./server"]`（即 `dist/index.js`），因此首次使用前需要构建一次：
+加载规则：优先读取 `package.json` 的 `exports["./server"]`（即 `dist/index.js`），首次使用前需构建一次：
 
 ```bash
 npm install
 npm run build
-```
-
-### npm 安装
-
-发布到 npm 后，直接按包名配置：
-
-```jsonc
-{
-  "plugin": ["opencode-agent-bridge"]
-}
 ```
 
 ## 提供的工具
