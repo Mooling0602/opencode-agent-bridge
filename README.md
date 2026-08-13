@@ -4,21 +4,23 @@
 [![npm downloads](https://img.shields.io/npm/dw/opencode-agent-bridge)](https://www.npmjs.com/package/opencode-agent-bridge)
 [![license](https://img.shields.io/npm/l/opencode-agent-bridge)](./LICENSE)
 
-OpenCode 插件：为多个 opencode 会话（agent）之间提供跨会话协作能力——派发任务、等待结果、完成通知与结果检查。功能由 [multi-agent-bridge](https://github.com/Mooling0602/multi-agent-bridge) 迁移而来，全部在 opencode 进程内完成（不派生额外服务器、不依赖外部配置）。
+English | [简体中文](README_zh_CN.md)
 
-## 安装
+OpenCode plugin for cross-session agent collaboration: dispatch tasks, wait for results, completion notifications, and result inspection. Migrated from [multi-agent-bridge](https://github.com/Mooling0602/multi-agent-bridge), everything runs inside the opencode process — no extra server spawned, no external configuration.
 
-### CLI 一键安装（推荐）
+## Installation
+
+### CLI installer (recommended)
 
 ```bash
 opencode plugin opencode-agent-bridge@latest --global
 ```
 
-安装到当前项目则去掉 `--global`。该命令会从 npm 拉取包并自动写入 opencode 配置，重启 opencode 后生效。
+Drop `--global` to install for the current project only. The command fetches the package from npm and patches the opencode config. Restart opencode afterwards.
 
-### 手动配置
+### Manual config
 
-在 `opencode.jsonc`（全局 `~/.config/opencode/opencode.jsonc` 或项目 `opencode.json`）中：
+In `opencode.jsonc` (global `~/.config/opencode/opencode.jsonc` or project `opencode.json`):
 
 ```jsonc
 {
@@ -26,9 +28,9 @@ opencode plugin opencode-agent-bridge@latest --global
 }
 ```
 
-opencode 启动时自动安装 npm 插件；固定版本可写为 `"opencode-agent-bridge@0.1.1"`。
+opencode installs npm plugins automatically at startup. Pin a version with `"opencode-agent-bridge@0.1.1"` if desired.
 
-### 本地路径（开发）
+### Local path (development)
 
 ```jsonc
 {
@@ -36,69 +38,69 @@ opencode 启动时自动安装 npm 插件；固定版本可写为 `"opencode-age
 }
 ```
 
-加载规则：优先读取 `package.json` 的 `exports["./server"]`（即 `dist/index.js`），首次使用前需构建一次：
+Loading resolves `package.json` `exports["./server"]` (i.e. `dist/index.js`), so build once before first use:
 
 ```bash
 npm install
 npm run build
 ```
 
-## 提供的工具
+## Tools
 
-| 工具 | 参数 | 说明 |
+| Tool | Arguments | Description |
 |---|---|---|
-| `agent_bridge_dispatch` | `target`, `message` | 向目标会话异步派发消息，不等待回复。目标完成后自动通知当前会话 |
-| `agent_bridge_wait` | `target`, `message`, `timeout?` | 向目标会话派发消息并**阻塞等待**，目标回复后完整返回回复内容；`timeout` 默认 1800 秒 |
-| `agent_bridge_notify` | `sender?`, `message?` | 手动通知发送方会话任务已完成；`sender` 缺省时自动从派发注册表查找 |
-| `agent_bridge_check` | `target`, `limit?` | 检查目标会话状态（busy/idle）与最近消息内容，用于获取任务结果 |
-| `agent_bridge_sessions` | `keyword?` | 列出当前目录下的会话（ID + 标题），可按标题关键词过滤 |
-| `agent_bridge_get_self_metadata` | 无 | 返回当前会话的 `sessionID` 与标题（只读） |
+| `agent_bridge_dispatch` | `target`, `message` | Dispatch a message to a target session asynchronously. The caller is notified automatically when the target finishes |
+| `agent_bridge_wait` | `target`, `message`, `timeout?` | Dispatch a message and **block** until the target replies, returning the full reply; `timeout` defaults to 1800 seconds |
+| `agent_bridge_notify` | `sender?`, `message?` | Manually notify the sender session of completion; `sender` is looked up from the dispatch registry when omitted |
+| `agent_bridge_check` | `target`, `limit?` | Inspect a target session's status (busy/idle) and recent messages to obtain task results |
+| `agent_bridge_sessions` | `keyword?` | List sessions in the current directory (ID + title), optionally filtered by keyword |
+| `agent_bridge_get_self_metadata` | none | Return the calling session's `sessionID` and title (read-only) |
 
-## 环境变量
+## Environment variables
 
-插件通过 `shell.env` hook 向所有 shell 执行（agent 工具与用户终端）注入：
+The plugin injects these into every shell execution (agent tools and user terminals) via the `shell.env` hook:
 
-- `OPENCODE_SESSION_ID`：当前会话 ID
-- `OPENCODE_SESSION_CWD`：会话工作目录
+- `OPENCODE_SESSION_ID`: current session ID
+- `OPENCODE_SESSION_CWD`: session working directory
 
-## 使用流程
+## Usage
 
-### 异步模式（通知与结果分离）
-
-```
-会话 A（调用方） agent_bridge_dispatch → 会话 B（接收方）执行任务
-    → B 完成 → session.idle 事件自动通知 A（或 B 内 agent 调 agent_bridge_notify 兜底）
-    → A 收到通知（仅提示完成，不含结果）
-    → A 调 agent_bridge_check(B) 获取 B 的最近消息（任务结果）
-```
-
-### 同步模式（阻塞等待完整结果）
+### Async mode (notification separated from results)
 
 ```
-会话 A agent_bridge_wait(B, msg) → B 执行 → 工具阻塞至 B 回复完成
-    → B 的回复内容完整返回给 A（无需 notify/check）
+Session A (caller) agent_bridge_dispatch → Session B (receiver) executes the task
+    → B finishes → session.idle event auto-notifies A (or B's agent calls agent_bridge_notify as fallback)
+    → A receives the notice (completion only, no result content)
+    → A calls agent_bridge_check(B) to read B's recent messages (task results)
 ```
 
-## 并发与竞态行为
+### Sync mode (block until the full result)
 
-- **通知去重**：idle 自动通知与手动 `agent_bridge_notify` 共享同一派发记录，发送前原子认领（claim），保证同一任务最多通知一次；发送失败时记录会被恢复，可被后续 idle 事件或手动 notify 重试。
-- **精确回复匹配**：每条派发消息以「水位（派发前最后一条消息 ID）+ 文本探针 + parentID」三重匹配识别属于自己的回复，多个会话向同一目标并发派发时不会串信、不会误通知。
-- **同步等待超时**：`agent_bridge_wait` 有超时兜底（默认 1800 秒），超时后可用 `agent_bridge_check` 查询进度。
+```
+Session A agent_bridge_wait(B, msg) → B executes → the tool blocks until B replies
+    → B's reply is returned to A in full (no notify/check needed)
+```
 
-### 已知限制
+## Concurrency & race behavior
 
-- **单派发者**：同一目标会话的注册表条目为单值。多个会话向同一目标并发派发时，后派发的覆盖先前的记录——自动通知只发给最后登记的调用方；被覆盖的调用方可依赖派发消息中附带的手动通知指令兜底。
-- **多 opencode 实例**：注册表文件在 `~/.local/share/` 下全局共享，多个 opencode 实例各自持有内存副本，互不感知对方写入；跨实例协作时自动通知可能重复或丢失，此时以手动 `agent_bridge_notify` 为准。
-- **多实例界面不实时刷新**：多个独立 opencode 实例（如两个 TUI 窗口）共享同一会话数据库，但事件仅在产生消息的实例进程内广播。派发到其他实例所显示会话的消息与回复不会实时出现在其界面中，重新打开/切换会话即可看到（数据未丢失）。多会话协作建议使用单实例（Web serve，或同一 TUI 内切换多个会话）。
-- **循环等待**：A `wait` B 且 B `wait` A 会形成死锁，双方各自阻塞至超时。请避免循环依赖，改用 `dispatch`/`check` 组合。
-- **消息窗口**：回复识别只检索目标会话最近 50 条消息；极活跃会话中派发消息可能滑出窗口导致自动通知/等待失效，此时使用手动 `agent_bridge_notify` 兜底。
-- **注册表过期**：派发记录超过 7 天未处理会被自动清理（TTL），超期任务请重新派发。
+- **Notification dedup**: idle auto-notification and manual `agent_bridge_notify` share the same dispatch record and claim it atomically before sending, guaranteeing at most one notification per task. On send failure the record is restored for later retry by a subsequent idle event or manual notify.
+- **Precise reply matching**: each dispatched message is matched to its own reply using watermark (last message ID before dispatch) + text probe + parentID, so concurrent dispatches into the same target never cross wires or misfire notifications.
+- **Sync wait timeout**: `agent_bridge_wait` has a timeout fallback (1800s default); use `agent_bridge_check` to inspect progress after a timeout.
 
-## 注册表
+### Known limitations
 
-派发关系持久化于 `~/.local/share/opencode-agent-bridge/dispatches.json`（可用 `XDG_DATA_HOME` 覆盖基目录）。opencode 重启后关系仍然有效。
+- **Single dispatcher per target**: the registry holds one record per target session. Concurrent dispatches to the same target overwrite earlier records — auto-notification goes only to the last registered caller; overwritten callers can rely on the manual notify instruction embedded in the dispatched message.
+- **Multiple opencode instances**: the registry file under `~/.local/share/` is shared globally, but each opencode instance keeps its own in-memory copy and does not observe other instances' writes; across instances, auto-notifications may be duplicated or lost — prefer manual `agent_bridge_notify` in that case.
+- **No realtime UI refresh across instances**: multiple independent opencode instances (e.g. two TUI windows) share the same session database, but events are only broadcast within the instance that produced the message. Messages dispatched into a session displayed by another instance do not appear in realtime; reopening/switching the session shows them (no data loss). Prefer a single instance (Web serve, or multiple sessions inside one TUI) for multi-session collaboration.
+- **Circular wait**: A `wait`s B while B `wait`s A forms a deadlock; both block until timeout. Avoid circular dependencies — use `dispatch`/`check` combinations instead.
+- **Message window**: reply recognition only inspects the latest 50 messages of the target session; in very active sessions a dispatched message may slide out of the window, in which case fall back to manual `agent_bridge_notify`.
+- **Registry TTL**: dispatch records older than 7 days are pruned automatically; re-dispatch tasks that outlive the TTL.
 
-## 开发
+## Registry
+
+Dispatch relationships are persisted to `~/.local/share/opencode-agent-bridge/dispatches.json` (`XDG_DATA_HOME` overrides the base directory). Relationships survive opencode restarts.
+
+## Development
 
 ```bash
 npm install
