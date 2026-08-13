@@ -49,10 +49,10 @@ npm run build
 
 | 工具 | 参数 | 说明 |
 |---|---|---|
-| `agent_bridge_dispatch` | `target`, `message` | 向目标会话异步派发消息，不等待回复。目标完成后自动通知当前会话 |
+| `agent_bridge_dispatch` | `target`, `message` | 向目标会话异步派发消息，不等待回复。目标完成后自动通知当前会话（**无需轮询**） |
 | `agent_bridge_wait` | `target`, `message`, `timeout?` | 向目标会话派发消息并**阻塞等待**，目标回复后完整返回回复内容；`timeout` 默认 1800 秒 |
 | `agent_bridge_notify` | `sender?`, `message?` | 手动通知发送方会话任务已完成；`sender` 缺省时自动从派发注册表查找 |
-| `agent_bridge_check` | `target`, `limit?` | 检查目标会话状态（busy/idle）与最近消息内容，用于获取任务结果 |
+| `agent_bridge_check` | `target`, `limit?` | 检查目标会话状态（busy/idle）与最近消息内容，用于获取任务结果；**仅在收到完成通知后调用，勿用于轮询** |
 | `agent_bridge_sessions` | `keyword?` | 列出当前目录下的会话（ID + 标题），可按标题关键词过滤 |
 | `agent_bridge_get_self_metadata` | 无 | 返回当前会话的 `sessionID` 与标题（只读） |
 

@@ -65,10 +65,10 @@ describe("event hook", () => {
 
   it("does not notify while the target has not replied yet", async () => {
     const client = makeClient({
-      messages: vi.fn().mockResolvedValue([msg("m0", "assistant", "旧回复"), msg("u1", "user", "派发内容")]),
+      messages: vi.fn().mockResolvedValue([msg("m0", "assistant", "old reply"), msg("u1", "user", "dispatched content")]),
     })
     const registry = makeRegistry()
-    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "派发内容" })
+    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "dispatched content" })
     const hook = createEventHook({ client, registry })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })
@@ -79,13 +79,13 @@ describe("event hook", () => {
   it("notifies the sender and clears the record once the reply exists", async () => {
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("m0", "assistant", "旧回复"),
-        msg("u1", "user", "派发内容"),
-        msg("a1", "assistant", "任务结果", "u1"),
+        msg("m0", "assistant", "old reply"),
+        msg("u1", "user", "dispatched content"),
+        msg("a1", "assistant", "task result", "u1"),
       ]),
     })
     const registry = makeRegistry()
-    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "派发内容" })
+    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "dispatched content" })
     const hook = createEventHook({ client, registry })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })
@@ -102,15 +102,15 @@ describe("event hook", () => {
   it("matches only the reply to the recorded dispatch probe (concurrent dispatches)", async () => {
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("m0", "assistant", "旧回复"),
-        msg("u_other", "user", "另一个会话派发的任务"),
-        msg("a_other", "assistant", "另一条任务的回复", "u_other"),
-        msg("u1", "user", "我们派发的任务"),
-        msg("a1", "assistant", "我们任务的回复", "u1"),
+        msg("m0", "assistant", "old reply"),
+        msg("u_other", "user", "task dispatched by another session"),
+        msg("a_other", "assistant", "reply to the other task", "u_other"),
+        msg("u1", "user", "our dispatched task"),
+        msg("a1", "assistant", "reply to our task", "u1"),
       ]),
     })
     const registry = makeRegistry()
-    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "我们派发的任务" })
+    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "our dispatched task" })
     const hook = createEventHook({ client, registry })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })
@@ -124,13 +124,13 @@ describe("event hook", () => {
   it("ignores replies to messages that are not our dispatch (no false notify)", async () => {
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("m0", "assistant", "旧回复"),
-        msg("u_other", "user", "另一个会话派发的任务"),
-        msg("a_other", "assistant", "另一条任务的回复", "u_other"),
+        msg("m0", "assistant", "old reply"),
+        msg("u_other", "user", "task dispatched by another session"),
+        msg("a_other", "assistant", "reply to the other task", "u_other"),
       ]),
     })
     const registry = makeRegistry()
-    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "我们派发的任务" })
+    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "our dispatched task" })
     const hook = createEventHook({ client, registry })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })
@@ -141,8 +141,8 @@ describe("event hook", () => {
   it("backs off when another notifier already claimed the record", async () => {
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("u1", "user", "派发内容"),
-        msg("a1", "assistant", "任务结果", "u1"),
+        msg("u1", "user", "dispatched content"),
+        msg("a1", "assistant", "task result", "u1"),
       ]),
     })
     const registry = makeRegistry()
@@ -150,11 +150,11 @@ describe("event hook", () => {
 
     // Simulate a manual notify having claimed and cleared the record
     // between this hook's reply check and its send step.
-    const record = { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "派发内容" }
+    const record = { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "dispatched content" }
     const messages = client.session.messages as ReturnType<typeof vi.fn>
     messages.mockImplementation(async () => {
       registry.delete("ses_b")
-      return [msg("u1", "user", "派发内容"), msg("a1", "assistant", "任务结果", "u1")]
+      return [msg("u1", "user", "dispatched content"), msg("a1", "assistant", "task result", "u1")]
     })
     registry.set("ses_b", record)
 
@@ -166,16 +166,16 @@ describe("event hook", () => {
   it("does not clobber a newer dispatch when the record was overwritten while awaiting", async () => {
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("m0", "assistant", "旧回复"),
-        msg("u1", "user", "旧任务"),
-        msg("a1", "assistant", "旧任务回复", "u1"),
+        msg("m0", "assistant", "old reply"),
+        msg("u1", "user", "old task"),
+        msg("a1", "assistant", "reply to old task", "u1"),
       ]),
     })
     const registry = makeRegistry()
     const hook = createEventHook({ client, registry })
 
-    const oldRecord = { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "旧任务" }
-    const newRecord = { sender: "ses_c", ts: Date.now(), watermark: "m0", probe: "新任务" }
+    const oldRecord = { sender: "ses_a", ts: Date.now(), watermark: "m0", probe: "old task" }
+    const newRecord = { sender: "ses_c", ts: Date.now(), watermark: "m0", probe: "new task" }
     registry.set("ses_b", oldRecord)
 
     // While the hook awaits the messages fetch, session C dispatches a new
@@ -183,7 +183,7 @@ describe("event hook", () => {
     const messages = client.session.messages as ReturnType<typeof vi.fn>
     messages.mockImplementation(async () => {
       registry.set("ses_b", newRecord)
-      return [msg("m0", "assistant", "旧回复"), msg("u1", "user", "旧任务"), msg("a1", "assistant", "旧任务回复", "u1")]
+      return [msg("m0", "assistant", "old reply"), msg("u1", "user", "old task"), msg("a1", "assistant", "reply to old task", "u1")]
     })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })
@@ -197,49 +197,49 @@ describe("event hook", () => {
   it("notifies with an error message when the task reply carries an error", async () => {
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("u1", "user", "派发内容"),
-        msg("a1", "assistant", "失败", "u1", { error: true }),
+        msg("u1", "user", "dispatched content"),
+        msg("a1", "assistant", "failure", "u1", { error: true }),
       ]),
     })
     const registry = makeRegistry()
-    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "派发内容" })
+    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "dispatched content" })
     const hook = createEventHook({ client, registry })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })
 
     const promptAsync = client.session.promptAsync as ReturnType<typeof vi.fn>
     expect(promptAsync).toHaveBeenCalledTimes(1)
-    expect(promptAsync.mock.calls[0][0].body.parts[0].text).toContain("发生错误")
+    expect(promptAsync.mock.calls[0][0].body.parts[0].text).toContain("failed while processing")
   })
 
   it("keeps the record when the notification fails", async () => {
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("u1", "user", "派发内容"),
-        msg("a1", "assistant", "任务结果", "u1"),
+        msg("u1", "user", "dispatched content"),
+        msg("a1", "assistant", "task result", "u1"),
       ]),
       promptAsync: vi.fn().mockRejectedValue(new Error("sender gone")),
     })
     const registry = makeRegistry()
-    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "派发内容" })
+    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "dispatched content" })
     const hook = createEventHook({ client, registry })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })
     expect(registry.has("ses_b")).toBe(true)
-    expect(registry.get("ses_b")).toMatchObject({ sender: "ses_a", probe: "派发内容" })
+    expect(registry.get("ses_b")).toMatchObject({ sender: "ses_a", probe: "dispatched content" })
   })
 
   it("restores the record after send failure so a retry can succeed", async () => {
     const promptAsync = vi.fn().mockRejectedValueOnce(new Error("transient")).mockResolvedValueOnce(undefined)
     const client = makeClient({
       messages: vi.fn().mockResolvedValue([
-        msg("u1", "user", "派发内容"),
-        msg("a1", "assistant", "任务结果", "u1"),
+        msg("u1", "user", "dispatched content"),
+        msg("a1", "assistant", "task result", "u1"),
       ]),
       promptAsync,
     })
     const registry = makeRegistry()
-    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "派发内容" })
+    registry.set("ses_b", { sender: "ses_a", ts: Date.now(), watermark: undefined, probe: "dispatched content" })
     const hook = createEventHook({ client, registry })
 
     await hook({ event: { type: "session.idle", properties: { sessionID: "ses_b" } } })

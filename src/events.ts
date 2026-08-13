@@ -46,7 +46,7 @@ export function createEventHook(deps: EventsDeps) {
       if (!reply) return
       failed = reply.info.error !== undefined && reply.info.error !== null
     } catch (err) {
-      log?.("warn", `检查会话 ${target} 回复状态失败: ${err instanceof Error ? err.message : String(err)}`)
+      log?.("warn", `Failed to check reply status of session ${target}: ${err instanceof Error ? err.message : String(err)}`)
       return
     }
 
@@ -55,18 +55,18 @@ export function createEventHook(deps: EventsDeps) {
     if (!registry.deleteIf(target, record)) return
 
     const content = failed
-      ? `[System Notification] 会话 ${target} 执行你派发的任务时发生错误。可用 agent_bridge_check 查看详情。`
-      : `[System Notification] ${DEFAULT_NOTICE.replaceAll("{target}", target)}`
+      ? `[Agent Bridge Notification] Session ${target} failed while processing your dispatched task. Use agent_bridge_check for details.`
+      : `[Agent Bridge Notification] ${DEFAULT_NOTICE.replaceAll("{target}", target)}`
     try {
       await client.session.promptAsync({
         path: { id: record.sender },
         body: { parts: [{ type: "text", text: content }] },
       })
-      log?.("info", `已自动通知会话 ${record.sender}（任务会话 ${target} 完成）`)
+      log?.("info", `Auto-notified session ${record.sender} (task session ${target} completed)`)
     } catch (err) {
       // Restore only when no newer dispatch took the slot.
       registry.setIfAbsent(target, record)
-      log?.("error", `自动通知会话 ${record.sender} 失败: ${err instanceof Error ? err.message : String(err)}`)
+      log?.("error", `Failed to auto-notify session ${record.sender}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 }

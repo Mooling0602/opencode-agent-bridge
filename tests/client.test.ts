@@ -9,10 +9,10 @@ function tupleClient(overrides: Record<string, (input: unknown) => Promise<unkno
 describe("adaptClient", () => {
   it("unwraps { data } tuples", async () => {
     const client = tupleClient({
-      list: async () => ({ data: [{ id: "ses_1", title: "标题" }], request: {}, response: {} }),
+      list: async () => ({ data: [{ id: "ses_1", title: "Title" }], request: {}, response: {} }),
     })
     const result = await client.session.list({ query: {} })
-    expect(result).toEqual([{ id: "ses_1", title: "标题" }])
+    expect(result).toEqual([{ id: "ses_1", title: "Title" }])
   })
 
   it("unwraps empty data tuples (204 responses)", async () => {
@@ -70,10 +70,10 @@ describe("adaptClient", () => {
 
   it("passes plain data through untouched (mock-friendly)", async () => {
     const client = tupleClient({
-      list: async () => [{ id: "ses_1", title: "标题" }],
+      list: async () => [{ id: "ses_1", title: "Title" }],
       promptAsync: async () => ({}),
     })
-    expect(await client.session.list({ query: {} })).toEqual([{ id: "ses_1", title: "标题" }])
+    expect(await client.session.list({ query: {} })).toEqual([{ id: "ses_1", title: "Title" }])
     await expect(client.session.promptAsync({ path: { id: "x" }, body: { parts: [] } })).resolves.toEqual({})
   })
 

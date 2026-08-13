@@ -49,10 +49,10 @@ npm run build
 
 | Tool | Arguments | Description |
 |---|---|---|
-| `agent_bridge_dispatch` | `target`, `message` | Dispatch a message to a target session asynchronously. The caller is notified automatically when the target finishes |
+| `agent_bridge_dispatch` | `target`, `message` | Dispatch a message to a target session asynchronously. The caller is notified automatically once the target finishes (**no polling needed**) |
 | `agent_bridge_wait` | `target`, `message`, `timeout?` | Dispatch a message and **block** until the target replies, returning the full reply; `timeout` defaults to 1800 seconds |
 | `agent_bridge_notify` | `sender?`, `message?` | Manually notify the sender session of completion; `sender` is looked up from the dispatch registry when omitted |
-| `agent_bridge_check` | `target`, `limit?` | Inspect a target session's status (busy/idle) and recent messages to obtain task results |
+| `agent_bridge_check` | `target`, `limit?` | Inspect a target session's status (busy/idle) and recent messages to obtain task results; **call only after the completion notification, never to poll** |
 | `agent_bridge_sessions` | `keyword?` | List sessions in the current directory (ID + title), optionally filtered by keyword |
 | `agent_bridge_get_self_metadata` | none | Return the calling session's `sessionID` and title (read-only) |
 

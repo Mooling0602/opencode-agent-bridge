@@ -36,7 +36,7 @@ function makeClient(overrides?: Partial<BridgeClient["session"]>): BridgeClient 
     session: {
       promptAsync: vi.fn().mockResolvedValue(undefined),
       messages: vi.fn().mockResolvedValue([]),
-      get: vi.fn().mockResolvedValue({ id: "ses_target", title: "目标会话" }),
+      get: vi.fn().mockResolvedValue({ id: "ses_target", title: "Target Session" }),
       status: vi.fn().mockResolvedValue({}),
       list: vi.fn().mockResolvedValue([]),
       ...overrides,
@@ -65,129 +65,129 @@ function makeRegistry() {
 describe("findDispatchReply", () => {
   it("finds the assistant reply to the dispatched user message", () => {
     const messages = [
-      msg("m0", "assistant", "旧回复"),
-      msg("u1", "user", "派发内容"),
-      msg("a1", "assistant", "任务结果", "u1"),
+      msg("m0", "assistant", "old reply"),
+      msg("u1", "user", "dispatched content"),
+      msg("a1", "assistant", "task result", "u1"),
     ]
-    const reply = findDispatchReply(messages, "m0", "派发内容")
+    const reply = findDispatchReply(messages, "m0", "dispatched content")
     expect(reply?.info.id).toBe("a1")
   })
 
   it("returns undefined when no user message follows the watermark", () => {
-    expect(findDispatchReply([msg("m0", "assistant", "旧回复")], "m0", "派发内容")).toBeUndefined()
+    expect(findDispatchReply([msg("m0", "assistant", "old reply")], "m0", "dispatched content")).toBeUndefined()
   })
 
   it("returns undefined when the dispatched message has no reply yet", () => {
-    const messages = [msg("m0", "assistant", "旧回复"), msg("u1", "user", "派发内容")]
-    expect(findDispatchReply(messages, "m0", "派发内容")).toBeUndefined()
+    const messages = [msg("m0", "assistant", "old reply"), msg("u1", "user", "dispatched content")]
+    expect(findDispatchReply(messages, "m0", "dispatched content")).toBeUndefined()
   })
 
   it("returns undefined while the reply is still streaming (no completed time)", () => {
     const messages = [
-      msg("m0", "assistant", "旧回复"),
-      msg("u1", "user", "派发内容"),
-      msg("a1", "assistant", "部分回复...", "u1", { completed: false }),
+      msg("m0", "assistant", "old reply"),
+      msg("u1", "user", "dispatched content"),
+      msg("a1", "assistant", "partial reply...", "u1", { completed: false }),
     ]
-    expect(findDispatchReply(messages, "m0", "派发内容")).toBeUndefined()
+    expect(findDispatchReply(messages, "m0", "dispatched content")).toBeUndefined()
   })
 
   it("returns streaming-free replies once completed", () => {
     const messages = [
-      msg("m0", "assistant", "旧回复"),
-      msg("u1", "user", "派发内容"),
-      msg("a1", "assistant", "完整回复", "u1"),
+      msg("m0", "assistant", "old reply"),
+      msg("u1", "user", "dispatched content"),
+      msg("a1", "assistant", "full reply", "u1"),
     ]
-    expect(findDispatchReply(messages, "m0", "派发内容")?.info.id).toBe("a1")
+    expect(findDispatchReply(messages, "m0", "dispatched content")?.info.id).toBe("a1")
   })
 
   it("returns error replies immediately", () => {
     const messages = [
-      msg("m0", "assistant", "旧回复"),
-      msg("u1", "user", "派发内容"),
-      msg("a1", "assistant", "失败", "u1", { error: true }),
+      msg("m0", "assistant", "old reply"),
+      msg("u1", "user", "dispatched content"),
+      msg("a1", "assistant", "failure", "u1", { error: true }),
     ]
-    const reply = findDispatchReply(messages, "m0", "派发内容")
+    const reply = findDispatchReply(messages, "m0", "dispatched content")
     expect(reply?.info.id).toBe("a1")
     expect(reply?.info.error).toBeDefined()
   })
 
   it("ignores replies belonging to other user messages", () => {
     const messages = [
-      msg("m0", "assistant", "旧回复"),
-      msg("u_old", "user", "之前的问题"),
-      msg("a_old", "assistant", "之前问题的回复", "u_old"),
-      msg("u1", "user", "派发内容"),
+      msg("m0", "assistant", "old reply"),
+      msg("u_old", "user", "previous question"),
+      msg("a_old", "assistant", "reply to previous question", "u_old"),
+      msg("u1", "user", "dispatched content"),
     ]
-    expect(findDispatchReply(messages, "m0", "派发内容")).toBeUndefined()
+    expect(findDispatchReply(messages, "m0", "dispatched content")).toBeUndefined()
   })
 
   it("works without a watermark (dispatch into an empty session)", () => {
-    const messages = [msg("u1", "user", "派发内容"), msg("a1", "assistant", "任务结果", "u1")]
-    expect(findDispatchReply(messages, undefined, "派发内容")?.info.id).toBe("a1")
+    const messages = [msg("u1", "user", "dispatched content"), msg("a1", "assistant", "task result", "u1")]
+    expect(findDispatchReply(messages, undefined, "dispatched content")?.info.id).toBe("a1")
   })
 
   it("matches by text when no sent text is provided", () => {
-    const messages = [msg("u1", "user", "第一条消息"), msg("a1", "assistant", "回复", "u1")]
+    const messages = [msg("u1", "user", "first message"), msg("a1", "assistant", "reply", "u1")]
     expect(findDispatchReply(messages, undefined, undefined)?.info.id).toBe("a1")
   })
 
   it("matches the latest dispatch when the same task is resent", () => {
     const messages = [
-      msg("m0", "assistant", "旧回复"),
-      msg("u1", "user", "同样任务的第一次派发"),
-      msg("a1", "assistant", "第一次的回复", "u1"),
-      msg("u2", "user", "同样任务的第二次派发"),
-      msg("a2", "assistant", "第二次的回复", "u2"),
+      msg("m0", "assistant", "old reply"),
+      msg("u1", "user", "first dispatch of the same task"),
+      msg("a1", "assistant", "reply to the first", "u1"),
+      msg("u2", "user", "second dispatch of the same task"),
+      msg("a2", "assistant", "reply to the second", "u2"),
     ]
-    const reply = findDispatchReply(messages, "m0", "同样任务的")
+    const reply = findDispatchReply(messages, "m0", "same task")
     expect(reply?.info.id).toBe("a2")
   })
 
   it("falls back to the whole window when the watermark is gone", () => {
     const messages = [
-      msg("u_old", "user", "其他任务"),
-      msg("a_old", "assistant", "其他回复", "u_old"),
-      msg("u1", "user", "派发内容"),
-      msg("a1", "assistant", "任务结果", "u1"),
+      msg("u_old", "user", "other task"),
+      msg("a_old", "assistant", "other reply", "u_old"),
+      msg("u1", "user", "dispatched content"),
+      msg("a1", "assistant", "task result", "u1"),
     ]
-    expect(findDispatchReply(messages, "m_gone", "派发内容")?.info.id).toBe("a1")
+    expect(findDispatchReply(messages, "m_gone", "dispatched content")?.info.id).toBe("a1")
   })
 })
 
 describe("formatSessionList", () => {
   const sessions = [
-    { id: "ses_1", title: "前端构建" },
-    { id: "ses_2", title: "后端调试" },
+    { id: "ses_1", title: "Frontend Build" },
+    { id: "ses_2", title: "Backend Debug" },
   ]
 
   it("formats all sessions", () => {
     const out = formatSessionList(sessions)
-    expect(out).toContain("ses_1: 前端构建")
-    expect(out).toContain("ses_2: 后端调试")
+    expect(out).toContain("ses_1: Frontend Build")
+    expect(out).toContain("ses_2: Backend Debug")
   })
 
   it("filters by keyword", () => {
-    const out = formatSessionList(sessions, "前端")
+    const out = formatSessionList(sessions, "Frontend")
     expect(out).toContain("ses_1")
     expect(out).not.toContain("ses_2")
   })
 
   it("handles empty lists", () => {
-    expect(formatSessionList([], undefined)).toBe("（无会话）")
-    expect(formatSessionList([], "关键词")).toContain("没有标题包含")
+    expect(formatSessionList([], undefined)).toBe("(no sessions)")
+    expect(formatSessionList([], "keyword")).toContain("No sessions with a title containing")
   })
 })
 
 describe("agent_bridge_dispatch", () => {
   it("sends the message, records the dispatch and reports success", async () => {
     const client = makeClient({
-      messages: vi.fn().mockResolvedValue([msg("m0", "assistant", "旧回复")]),
+      messages: vi.fn().mockResolvedValue([msg("m0", "assistant", "old reply")]),
     })
     const registry = makeRegistry()
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_dispatch.execute(
-      { target: "ses_target", message: "请帮我写测试" },
+      { target: "ses_target", message: "please help me write tests" },
       makeCtx(),
     )
 
@@ -195,7 +195,7 @@ describe("agent_bridge_dispatch", () => {
     expect(promptAsync).toHaveBeenCalledTimes(1)
     const call = promptAsync.mock.calls[0][0]
     expect(call.path.id).toBe("ses_target")
-    expect(call.body.parts[0].text).toContain("请帮我写测试")
+    expect(call.body.parts[0].text).toContain("please help me write tests")
     expect(call.body.parts[0].text).toContain("ses_caller")
     expect(call.body.parts[0].text).toContain("agent_bridge_notify")
     // Every {sender} placeholder must be replaced, none left literal.
@@ -204,9 +204,9 @@ describe("agent_bridge_dispatch", () => {
     expect(registry.get("ses_target")).toMatchObject({
       sender: "ses_caller",
       watermark: "m0",
-      probe: "请帮我写测试",
+      probe: "please help me write tests",
     })
-    expect(result).toContain("已向会话 ses_target 派发消息")
+    expect(result).toContain("Dispatched message to session ses_target")
   })
 
   it("reports failure when promptAsync throws", async () => {
@@ -220,7 +220,7 @@ describe("agent_bridge_dispatch", () => {
       { target: "ses_target", message: "hi" },
       makeCtx(),
     )
-    expect(result).toContain("派发到会话 ses_target 失败")
+    expect(result).toContain("Failed to dispatch to session ses_target")
     expect(registry.has("ses_target")).toBe(false)
   })
 })
@@ -229,12 +229,12 @@ describe("agent_bridge_wait", () => {
   it("blocks until the target replies and returns the full reply", async () => {
     const messages = vi
       .fn<() => Promise<BridgeMessage[]>>()
-      .mockResolvedValueOnce([msg("m0", "assistant", "旧回复")])
-      .mockResolvedValueOnce([msg("m0", "assistant", "旧回复"), msg("u1", "user", "请处理任务")])
+      .mockResolvedValueOnce([msg("m0", "assistant", "old reply")])
+      .mockResolvedValueOnce([msg("m0", "assistant", "old reply"), msg("u1", "user", "please process the task")])
       .mockResolvedValue([
-        msg("m0", "assistant", "旧回复"),
-        msg("u1", "user", "请处理任务"),
-        msg("a1", "assistant", "任务已完成，产物在 dist/", "u1"),
+        msg("m0", "assistant", "old reply"),
+        msg("u1", "user", "please process the task"),
+        msg("a1", "assistant", "Task done, artifacts in dist/", "u1"),
       ])
     const client = makeClient({ messages })
     const registry = makeRegistry()
@@ -246,12 +246,12 @@ describe("agent_bridge_wait", () => {
     })
 
     const result = await tools.agent_bridge_wait.execute(
-      { target: "ses_target", message: "请处理任务" },
+      { target: "ses_target", message: "please process the task" },
       makeCtx(),
     )
 
-    expect(result).toContain("ses_target 已回复")
-    expect(result).toContain("任务已完成，产物在 dist/")
+    expect(result).toContain("Session ses_target replied")
+    expect(result).toContain("Task done, artifacts in dist/")
     // sync wait must not register a dispatch relationship
     expect(registry.has("ses_target")).toBe(false)
   })
@@ -259,16 +259,16 @@ describe("agent_bridge_wait", () => {
   it("keeps polling while the reply is streaming", async () => {
     const messages = vi
       .fn<() => Promise<BridgeMessage[]>>()
-      .mockResolvedValueOnce([msg("m0", "assistant", "旧回复")])
+      .mockResolvedValueOnce([msg("m0", "assistant", "old reply")])
       .mockResolvedValueOnce([
-        msg("m0", "assistant", "旧回复"),
-        msg("u1", "user", "请处理任务"),
-        msg("a1", "assistant", "部分回复...", "u1", { completed: false }),
+        msg("m0", "assistant", "old reply"),
+        msg("u1", "user", "please process the task"),
+        msg("a1", "assistant", "partial reply...", "u1", { completed: false }),
       ])
       .mockResolvedValue([
-        msg("m0", "assistant", "旧回复"),
-        msg("u1", "user", "请处理任务"),
-        msg("a1", "assistant", "任务已完成，产物在 dist/", "u1"),
+        msg("m0", "assistant", "old reply"),
+        msg("u1", "user", "please process the task"),
+        msg("a1", "assistant", "Task done, artifacts in dist/", "u1"),
       ])
     const client = makeClient({ messages })
     const registry = makeRegistry()
@@ -280,20 +280,20 @@ describe("agent_bridge_wait", () => {
     })
 
     const result = await tools.agent_bridge_wait.execute(
-      { target: "ses_target", message: "请处理任务" },
+      { target: "ses_target", message: "please process the task" },
       makeCtx(),
     )
-    expect(result).toContain("任务已完成，产物在 dist/")
-    expect(result).not.toContain("部分回复")
+    expect(result).toContain("Task done, artifacts in dist/")
+    expect(result).not.toContain("partial reply")
   })
 
   it("reports a textless completed reply instead of polling forever", async () => {
     const messages = vi
       .fn<() => Promise<BridgeMessage[]>>()
-      .mockResolvedValueOnce([msg("m0", "assistant", "旧回复")])
+      .mockResolvedValueOnce([msg("m0", "assistant", "old reply")])
       .mockResolvedValue([
-        msg("m0", "assistant", "旧回复"),
-        msg("u1", "user", "请处理任务"),
+        msg("m0", "assistant", "old reply"),
+        msg("u1", "user", "please process the task"),
         { info: { id: "a1", role: "assistant", parentID: "u1", time: { created: 1, completed: 2 } }, parts: [] },
       ])
     const client = makeClient({ messages })
@@ -301,15 +301,15 @@ describe("agent_bridge_wait", () => {
     const tools = createTools({ client, registry, sleep: async () => {}, pollIntervalMs: 1 })
 
     const result = await tools.agent_bridge_wait.execute(
-      { target: "ses_target", message: "请处理任务" },
+      { target: "ses_target", message: "please process the task" },
       makeCtx(),
     )
-    expect(result).toContain("无文本内容")
+    expect(result).toContain("without text content")
   })
 
   it("aborts when the tool context is aborted", async () => {
     const client = makeClient({
-      messages: vi.fn().mockResolvedValue([msg("u1", "user", "请处理任务")]),
+      messages: vi.fn().mockResolvedValue([msg("u1", "user", "please process the task")]),
     })
     const registry = makeRegistry()
     const tools = createTools({ client, registry, sleep: async () => {}, pollIntervalMs: 1 })
@@ -319,16 +319,16 @@ describe("agent_bridge_wait", () => {
     controller.abort()
 
     const result = await tools.agent_bridge_wait.execute(
-      { target: "ses_target", message: "请处理任务" },
+      { target: "ses_target", message: "please process the task" },
       ctx,
     )
-    expect(result).toContain("被中断")
+    expect(result).toContain("was aborted")
     expect(result).toContain("agent_bridge_check")
   })
 
   it("returns a timeout message when the target never replies", async () => {
     const client = makeClient({
-      messages: vi.fn().mockResolvedValue([msg("m0", "assistant", "旧回复"), msg("u1", "user", "请处理任务")]),
+      messages: vi.fn().mockResolvedValue([msg("m0", "assistant", "old reply"), msg("u1", "user", "please process the task")]),
     })
     const registry = makeRegistry()
     let elapsed = 0
@@ -344,10 +344,10 @@ describe("agent_bridge_wait", () => {
     })
 
     const result = await tools.agent_bridge_wait.execute(
-      { target: "ses_target", message: "请处理任务" },
+      { target: "ses_target", message: "please process the task" },
       makeCtx(),
     )
-    expect(result).toContain("超时")
+    expect(result).toContain("Timed out")
     expect(result).toContain("agent_bridge_check")
   })
 
@@ -362,7 +362,7 @@ describe("agent_bridge_wait", () => {
       { target: "ses_target", message: "hi" },
       makeCtx(),
     )
-    expect(result).toContain("派发到会话 ses_target 失败")
+    expect(result).toContain("Failed to dispatch to session ses_target")
     // Only the watermark lookup may run; no polling should happen.
     expect(client.session.messages).toHaveBeenCalledTimes(1)
   })
@@ -384,7 +384,7 @@ describe("agent_bridge_notify", () => {
     expect(call.body.parts[0].text).toContain("ses_executor")
     expect(call.body.parts[0].text).toContain("agent_bridge_check")
     expect(registry.has("ses_executor")).toBe(false)
-    expect(result).toContain("已通知会话 ses_caller")
+    expect(result).toContain("Notified session ses_caller")
   })
 
   it("uses the explicit sender argument", async () => {
@@ -426,12 +426,12 @@ describe("agent_bridge_notify", () => {
       promptAsync: vi.fn().mockRejectedValue(new Error("sender gone")),
     })
     const registry = makeRegistry()
-    registry.set("ses_executor", { sender: "ses_caller", ts: Date.now(), probe: "任务内容" })
+    registry.set("ses_executor", { sender: "ses_caller", ts: Date.now(), probe: "task content" })
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_notify.execute({ sender: "ses_caller" }, makeCtx("ses_executor"))
-    expect(result).toContain("通知会话 ses_caller 失败")
-    expect(registry.get("ses_executor")).toMatchObject({ sender: "ses_caller", probe: "任务内容" })
+    expect(result).toContain("Failed to notify session ses_caller")
+    expect(registry.get("ses_executor")).toMatchObject({ sender: "ses_caller", probe: "task content" })
   })
 
   it("supports a custom message", async () => {
@@ -440,11 +440,11 @@ describe("agent_bridge_notify", () => {
     const tools = createTools({ client, registry })
 
     await tools.agent_bridge_notify.execute(
-      { sender: "ses_other", message: "自定义内容" },
+      { sender: "ses_other", message: "custom content" },
       makeCtx("ses_executor"),
     )
     const promptAsync = client.session.promptAsync as ReturnType<typeof vi.fn>
-    expect(promptAsync.mock.calls[0][0].body.parts[0].text).toBe("[System Notification] 自定义内容")
+    expect(promptAsync.mock.calls[0][0].body.parts[0].text).toBe("[Agent Bridge Notification] custom content")
   })
 
   it("reports an error when no record and no sender argument exist", async () => {
@@ -453,7 +453,7 @@ describe("agent_bridge_notify", () => {
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_notify.execute({}, makeCtx("ses_executor"))
-    expect(result).toContain("未找到当前会话的派发记录")
+    expect(result).toContain("No dispatch record found")
     expect(client.session.promptAsync).not.toHaveBeenCalled()
   })
 
@@ -466,7 +466,7 @@ describe("agent_bridge_notify", () => {
     registry.delete("ses_executor") // simulate the idle event having won the race
 
     const result = await tools.agent_bridge_notify.execute({}, makeCtx("ses_executor"))
-    expect(result).toContain("未找到当前会话的派发记录")
+    expect(result).toContain("No dispatch record found")
     expect(client.session.promptAsync).not.toHaveBeenCalled()
   })
 
@@ -475,12 +475,12 @@ describe("agent_bridge_notify", () => {
       promptAsync: vi.fn().mockRejectedValue(new Error("sender gone")),
     })
     const registry = makeRegistry()
-    registry.set("ses_executor", { sender: "ses_caller", ts: Date.now(), watermark: "m0", probe: "任务内容" })
+    registry.set("ses_executor", { sender: "ses_caller", ts: Date.now(), watermark: "m0", probe: "task content" })
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_notify.execute({}, makeCtx("ses_executor"))
-    expect(result).toContain("通知会话 ses_caller 失败")
-    expect(registry.get("ses_executor")).toMatchObject({ sender: "ses_caller", probe: "任务内容" })
+    expect(result).toContain("Failed to notify session ses_caller")
+    expect(registry.get("ses_executor")).toMatchObject({ sender: "ses_caller", probe: "task content" })
   })
 })
 
@@ -489,17 +489,17 @@ describe("agent_bridge_check", () => {
     const client = makeClient({
       status: vi.fn().mockResolvedValue({ ses_target: { type: "idle" } }),
       messages: vi.fn().mockResolvedValue([
-        msg("u1", "user", "问题"),
-        msg("a1", "assistant", "回答内容"),
+        msg("u1", "user", "question"),
+        msg("a1", "assistant", "answer content"),
       ]),
     })
     const registry = makeRegistry()
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_check.execute({ target: "ses_target" }, makeCtx())
-    expect(result).toContain("会话 ses_target 状态: idle")
-    expect(result).toContain("[user] 问题")
-    expect(result).toContain("[assistant] 回答内容")
+    expect(result).toContain("Session ses_target status: idle")
+    expect(result).toContain("[user] question")
+    expect(result).toContain("[assistant] answer content")
   })
 
   it("marks non-text messages", async () => {
@@ -511,7 +511,7 @@ describe("agent_bridge_check", () => {
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_check.execute({ target: "ses_target" }, makeCtx())
-    expect(result).toContain("<非文本消息>")
+    expect(result).toContain("<non-text message>")
   })
 
   it("reports errors from the client", async () => {
@@ -522,7 +522,7 @@ describe("agent_bridge_check", () => {
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_check.execute({ target: "ses_target" }, makeCtx())
-    expect(result).toContain("检查会话 ses_target 失败")
+    expect(result).toContain("Failed to inspect session ses_target")
   })
 })
 
@@ -530,28 +530,28 @@ describe("agent_bridge_sessions", () => {
   it("lists sessions with ids and titles", async () => {
     const client = makeClient({
       list: vi.fn().mockResolvedValue([
-        { id: "ses_1", title: "前端构建" },
-        { id: "ses_2", title: "后端调试" },
+        { id: "ses_1", title: "Frontend Build" },
+        { id: "ses_2", title: "Backend Debug" },
       ]),
     })
     const registry = makeRegistry()
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_sessions.execute({}, makeCtx())
-    expect(result).toContain("ses_1: 前端构建")
-    expect(result).toContain("ses_2: 后端调试")
+    expect(result).toContain("ses_1: Frontend Build")
+    expect(result).toContain("ses_2: Backend Debug")
     const listCall = (client.session.list as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(listCall.query.directory).toBe("/work")
   })
 
   it("passes the keyword filter through", async () => {
     const client = makeClient({
-      list: vi.fn().mockResolvedValue([{ id: "ses_1", title: "前端构建" }]),
+      list: vi.fn().mockResolvedValue([{ id: "ses_1", title: "Frontend Build" }]),
     })
     const registry = makeRegistry()
     const tools = createTools({ client, registry })
 
-    const result = await tools.agent_bridge_sessions.execute({ keyword: "前端" }, makeCtx())
+    const result = await tools.agent_bridge_sessions.execute({ keyword: "Frontend" }, makeCtx())
     expect(result).toContain("ses_1")
     expect(result).not.toContain("ses_2")
   })
@@ -560,14 +560,14 @@ describe("agent_bridge_sessions", () => {
 describe("agent_bridge_get_self_metadata", () => {
   it("returns the calling session ID and title", async () => {
     const client = makeClient({
-      get: vi.fn().mockResolvedValue({ id: "ses_caller", title: "我的会话" }),
+      get: vi.fn().mockResolvedValue({ id: "ses_caller", title: "My Session" }),
     })
     const registry = makeRegistry()
     const tools = createTools({ client, registry })
 
     const result = await tools.agent_bridge_get_self_metadata.execute({}, makeCtx())
     expect(result).toContain("sessionID: ses_caller")
-    expect(result).toContain("title: 我的会话")
+    expect(result).toContain("title: My Session")
   })
 
   it("degrades gracefully when the session cannot be fetched", async () => {
@@ -579,6 +579,6 @@ describe("agent_bridge_get_self_metadata", () => {
 
     const result = await tools.agent_bridge_get_self_metadata.execute({}, makeCtx())
     expect(result).toContain("sessionID: ses_caller")
-    expect(result).toContain("（获取失败）")
+    expect(result).toContain("(failed to fetch)")
   })
 })

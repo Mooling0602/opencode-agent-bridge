@@ -49,11 +49,11 @@ export type ToolsDeps = {
 }
 
 export const DEFAULT_NOTICE =
-  "你派发的消息已被目标会话（{target}）处理完成。可用 agent_bridge_check 工具查看任务结果。"
+  "The task dispatched to target session ({target}) has been completed. Use the agent_bridge_check tool to review the results."
 
-export const DISPATCH_INSTRUCTION = `[Agent Bridge] 本消息由会话 {sender} 派发。任务完成后，请调用 agent_bridge_notify 工具通知发送方，并显式传入 sender 参数（值为 {sender}）。`
+export const DISPATCH_INSTRUCTION = `[Agent Bridge] This message was dispatched by session {sender}. When the task is done, call the agent_bridge_notify tool and pass the sender argument explicitly (value: {sender}).`
 
-export const WAIT_INSTRUCTION = `[Agent Bridge] 本消息由会话 {sender} 派发。任务完成后，请直接在回复中给出任务结果，无需调用通知工具。`
+export const WAIT_INSTRUCTION = `[Agent Bridge] This message was dispatched by session {sender}. When the task is done, reply directly with the task results; no notification tool call is needed.`
 
 export function messageText(message: BridgeMessage): string {
   return message.parts
@@ -110,8 +110,8 @@ export function formatSessionList(sessions: BridgeSession[], keyword?: string): 
   const filtered = keyword
     ? sessions.filter((s) => (s.title || "").toLowerCase().includes(keyword.toLowerCase()))
     : sessions
-  if (filtered.length === 0) return keyword ? `没有标题包含「${keyword}」的会话。` : "（无会话）"
-  return filtered.map((s) => `- ${s.id}: ${s.title || "（无标题）"}`).join("\n")
+  if (filtered.length === 0) return keyword ? `No sessions with a title containing "${keyword}".` : "(no sessions)"
+  return filtered.map((s) => `- ${s.id}: ${s.title || "(untitled)"}`).join("\n")
 }
 
 export function createTools(deps: ToolsDeps) {
@@ -133,10 +133,10 @@ export function createTools(deps: ToolsDeps) {
 
   const agent_bridge_dispatch = tool({
     description:
-      "向目标 opencode 会话异步派发消息，不等待回复。目标会话完成后会通过 agent_bridge_notify 或事件自动通知当前会话。",
+      "Dispatch a message to a target opencode session asynchronously, without waiting for a reply. The current session is notified automatically (as an incoming message) once the target finishes. Do not poll or call agent_bridge_check repeatedly after dispatching; wait for the completion notification, then use agent_bridge_check to review the results.",
     args: {
-      target: tool.schema.string().describe("目标会话 ID（可用 agent_bridge_sessions 查询）"),
-      message: tool.schema.string().min(1).describe("要派发的消息内容"),
+      target: tool.schema.string().describe("Target session ID (query with agent_bridge_sessions)"),
+      message: tool.schema.string().min(1).describe("Message content to dispatch"),
     },
     async execute(args, ctx: ToolContext) {
       const { target, message } = args
@@ -149,25 +149,25 @@ export function createTools(deps: ToolsDeps) {
           body: { parts: [{ type: "text", text }] },
         })
         registry.set(target, { sender, ts: Date.now(), watermark, probe: message.slice(0, 80) })
-        return `已向会话 ${target} 派发消息。任务完成后会自动通知当前会话（${sender}）。`
+        return `Dispatched message to session ${target}. The current session (${sender}) will be notified automatically once the task is done — no polling needed; use agent_bridge_check after receiving the notification.`
       } catch (err) {
-        return `派发到会话 ${target} 失败: ${err instanceof Error ? err.message : String(err)}`
+        return `Failed to dispatch to session ${target}: ${err instanceof Error ? err.message : String(err)}`
       }
     },
   })
 
   const agent_bridge_wait = tool({
     description:
-      "向目标 opencode 会话派发消息并阻塞等待其完成回复，完整返回回复内容（同步模式）。",
+      "Dispatch a message to a target opencode session and block until it replies, returning the full reply content (sync mode).",
     args: {
-      target: tool.schema.string().describe("目标会话 ID（可用 agent_bridge_sessions 查询）"),
-      message: tool.schema.string().min(1).describe("要派发的消息内容"),
+      target: tool.schema.string().describe("Target session ID (query with agent_bridge_sessions)"),
+      message: tool.schema.string().min(1).describe("Message content to dispatch"),
       timeout: tool.schema
         .number()
         .int()
         .min(1)
         .optional()
-        .describe("最长等待秒数（默认 1800）"),
+        .describe("Maximum wait in seconds (default 1800)"),
     },
     async execute(args, ctx: ToolContext) {
       const { target, message } = args
@@ -180,14 +180,14 @@ export function createTools(deps: ToolsDeps) {
           body: { parts: [{ type: "text", text }] },
         })
       } catch (err) {
-        return `派发到会话 ${target} 失败: ${err instanceof Error ? err.message : String(err)}`
+        return `Failed to dispatch to session ${target}: ${err instanceof Error ? err.message : String(err)}`
       }
 
       const deadline = now() + timeoutMs
       const sentProbe = message.slice(0, 80)
       for (;;) {
         if (ctx.abort.aborted) {
-          return `[Agent Bridge] 等待会话 ${target} 回复被中断。可用 agent_bridge_check 查询进度。`
+          return `[Agent Bridge] Waiting for session ${target} was aborted. Use agent_bridge_check to check progress.`
         }
         let reply: BridgeMessage | undefined
         try {
@@ -198,14 +198,14 @@ export function createTools(deps: ToolsDeps) {
         }
         if (reply) {
           if (reply.info.error) {
-            return `[Agent Bridge] 会话 ${target} 的回复执行失败。可用 agent_bridge_check 查看详情。`
+            return `[Agent Bridge] Session ${target} failed while processing the task. Use agent_bridge_check for details.`
           }
           const body = messageText(reply)
-          if (body) return `[Agent Bridge] 会话 ${target} 已回复:\n${body}`
-          return `[Agent Bridge] 会话 ${target} 已完成回复（无文本内容）。可用 agent_bridge_check 查看。`
+          if (body) return `[Agent Bridge] Session ${target} replied:\n${body}`
+          return `[Agent Bridge] Session ${target} finished without text content. Use agent_bridge_check to inspect.`
         }
         if (now() >= deadline) {
-          return `[Agent Bridge] 等待会话 ${target} 回复超时（${Math.round(timeoutMs / 1000)} 秒）。可用 agent_bridge_check 查询进度。`
+          return `[Agent Bridge] Timed out waiting for session ${target} to reply (${Math.round(timeoutMs / 1000)}s). Use agent_bridge_check to check progress.`
         }
         await sleep(pollIntervalMs)
       }
@@ -214,10 +214,10 @@ export function createTools(deps: ToolsDeps) {
 
   const agent_bridge_notify = tool({
     description:
-      "手动通知发送方会话：向调用方会话发送任务完成通知。sender 缺省时自动从派发注册表查找当前会话的发送方。",
+      "Manually notify the sender session that the task is complete. When sender is omitted, it is looked up from the dispatch registry for the current session.",
     args: {
-      sender: tool.schema.string().optional().describe("要通知的发送方会话 ID（缺省时自动查找）"),
-      message: tool.schema.string().optional().describe("自定义通知附加信息（可选）"),
+      sender: tool.schema.string().optional().describe("Sender session ID to notify (auto-detected when omitted)"),
+      message: tool.schema.string().optional().describe("Optional custom message"),
     },
     async execute(args, ctx: ToolContext) {
       const executor = ctx.sessionID
@@ -235,42 +235,43 @@ export function createTools(deps: ToolsDeps) {
         const rec = registry.get(executor)
         sender = rec?.sender
         if (!sender) {
-          return "未找到当前会话的派发记录，无法确定通知目标。请显式传入 sender 参数。"
+          return "No dispatch record found for the current session; pass the sender argument explicitly."
         }
         // Claim the record before sending; combined with the same claim in
         // the idle event hook this guarantees a single notification.
         if (!registry.deleteIf(executor, rec)) {
-          return "派发记录已被其他通知者处理，跳过重复通知。"
+          return "The dispatch record was already handled by another notifier; skipping duplicate notification."
         }
         claimed = rec
       }
       const content = args.message
-        ? `[System Notification] ${args.message}`
-        : `[System Notification] ${DEFAULT_NOTICE.replaceAll("{target}", executor)}`
+        ? `[Agent Bridge Notification] ${args.message}`
+        : `[Agent Bridge Notification] ${DEFAULT_NOTICE.replaceAll("{target}", executor)}`
       try {
         await client.session.promptAsync({
           path: { id: sender },
           body: { parts: [{ type: "text", text: content }] },
         })
-        return `已通知会话 ${sender}`
+        return `Notified session ${sender}`
       } catch (err) {
         if (claimed) registry.setIfAbsent(executor, claimed)
-        return `通知会话 ${sender} 失败: ${err instanceof Error ? err.message : String(err)}`
+        return `Failed to notify session ${sender}: ${err instanceof Error ? err.message : String(err)}`
       }
     },
   })
 
   const agent_bridge_check = tool({
-    description: "检查目标 opencode 会话的状态与最近消息内容，用于获取任务结果。",
+    description:
+      "Inspect a target opencode session's status and recent messages to obtain task results. Call this only after receiving the target's completion notification; do not poll this tool to wait for completion (the notification arrives automatically after dispatch).",
     args: {
-      target: tool.schema.string().describe("目标会话 ID"),
+      target: tool.schema.string().describe("Target session ID"),
       limit: tool.schema
         .number()
         .int()
         .min(1)
         .max(100)
         .optional()
-        .describe("返回最近消息条数（默认 10）"),
+        .describe("Number of recent messages to return (default 10)"),
     },
     async execute(args) {
       const { target } = args
@@ -287,21 +288,21 @@ export function createTools(deps: ToolsDeps) {
         const lines = messages
           .map((m) => {
             const text = messageText(m)
-            return text ? `[${m.info.role}] ${text}` : `[${m.info.role}] <非文本消息>`
+            return text ? `[${m.info.role}] ${text}` : `[${m.info.role}] <non-text message>`
           })
           .map((l) => `- ${l}`)
           .join("\n")
-        return `会话 ${target} 状态: ${state}\n最近消息:\n${lines || "- （无）"}`
+        return `Session ${target} status: ${state}\nRecent messages:\n${lines || "- (none)"}`
       } catch (err) {
-        return `检查会话 ${target} 失败: ${err instanceof Error ? err.message : String(err)}`
+        return `Failed to inspect session ${target}: ${err instanceof Error ? err.message : String(err)}`
       }
     },
   })
 
   const agent_bridge_sessions = tool({
-    description: "列出可用的 opencode 会话（可按标题关键词过滤），返回会话 ID 与标题。",
+    description: "List available opencode sessions (filterable by title keyword), returning session IDs and titles.",
     args: {
-      keyword: tool.schema.string().optional().describe("按标题过滤的关键词（可选）"),
+      keyword: tool.schema.string().optional().describe("Optional title keyword filter"),
     },
     async execute(args, ctx: ToolContext) {
       try {
@@ -309,21 +310,21 @@ export function createTools(deps: ToolsDeps) {
         const sessions = await client.session.list({ query })
         return formatSessionList(sessions, args.keyword)
       } catch (err) {
-        return `列出会话失败: ${err instanceof Error ? err.message : String(err)}`
+        return `Failed to list sessions: ${err instanceof Error ? err.message : String(err)}`
       }
     },
   })
 
   const agent_bridge_get_self_metadata = tool({
-    description: "返回当前会话的 sessionID 与会话标题（只读）。",
+    description: "Return the current session's sessionID and title (read-only).",
     args: {},
     async execute(_args, ctx: ToolContext) {
       const sessionID = ctx.sessionID
       try {
         const session = await client.session.get({ path: { id: sessionID } })
-        return `sessionID: ${sessionID}\ntitle: ${session.title || "（无标题）"}`
+        return `sessionID: ${sessionID}\ntitle: ${session.title || "(untitled)"}`
       } catch {
-        return `sessionID: ${sessionID}\ntitle: （获取失败）`
+        return `sessionID: ${sessionID}\ntitle: (failed to fetch)`
       }
     },
   })
