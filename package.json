@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "opencode-agent-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "OpenCode plugin for cross-session agent collaboration: dispatch, wait, notify, check, and list sessions.",
   "license": "MIT",
@@ -25,7 +25,8 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "opencode",
@@ -35,6 +36,14 @@
     "multi-agent",
     "bridge"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mooling0602/opencode-agent-bridge.git"
+  },
+  "homepage": "https://github.com/Mooling0602/opencode-agent-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/Mooling0602/opencode-agent-bridge/issues"
+  },
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.4.0"
   },
