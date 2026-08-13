@@ -142,7 +142,7 @@ export function createTools(deps: ToolsDeps) {
       const { target, message } = args
       const sender = ctx.sessionID
       const watermark = await lastMessageId(target)
-      const text = `${message}\n\n---\n${DISPATCH_INSTRUCTION.replace("{sender}", sender)}`
+      const text = `${message}\n\n---\n${DISPATCH_INSTRUCTION.replaceAll("{sender}", sender)}`
       try {
         await client.session.promptAsync({
           path: { id: target },
@@ -173,7 +173,7 @@ export function createTools(deps: ToolsDeps) {
       const { target, message } = args
       const timeoutMs = (args.timeout ?? Math.round(defaultWaitTimeoutMs / 1000)) * 1000
       const watermark = await lastMessageId(target)
-      const text = `${message}\n\n---\n${WAIT_INSTRUCTION.replace("{sender}", ctx.sessionID)}`
+      const text = `${message}\n\n---\n${WAIT_INSTRUCTION.replaceAll("{sender}", ctx.sessionID)}`
       try {
         await client.session.promptAsync({
           path: { id: target },
@@ -246,7 +246,7 @@ export function createTools(deps: ToolsDeps) {
       }
       const content = args.message
         ? `[System Notification] ${args.message}`
-        : `[System Notification] ${DEFAULT_NOTICE.replace("{target}", executor)}`
+        : `[System Notification] ${DEFAULT_NOTICE.replaceAll("{target}", executor)}`
       try {
         await client.session.promptAsync({
           path: { id: sender },

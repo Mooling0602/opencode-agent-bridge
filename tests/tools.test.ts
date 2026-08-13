@@ -198,6 +198,8 @@ describe("agent_bridge_dispatch", () => {
     expect(call.body.parts[0].text).toContain("请帮我写测试")
     expect(call.body.parts[0].text).toContain("ses_caller")
     expect(call.body.parts[0].text).toContain("agent_bridge_notify")
+    // Every {sender} placeholder must be replaced, none left literal.
+    expect(call.body.parts[0].text).not.toContain("{sender}")
 
     expect(registry.get("ses_target")).toMatchObject({
       sender: "ses_caller",

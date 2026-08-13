@@ -56,7 +56,7 @@ export function createEventHook(deps: EventsDeps) {
 
     const content = failed
       ? `[System Notification] 会话 ${target} 执行你派发的任务时发生错误。可用 agent_bridge_check 查看详情。`
-      : `[System Notification] ${DEFAULT_NOTICE.replace("{target}", target)}`
+      : `[System Notification] ${DEFAULT_NOTICE.replaceAll("{target}", target)}`
     try {
       await client.session.promptAsync({
         path: { id: record.sender },
