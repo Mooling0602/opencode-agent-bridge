@@ -19,6 +19,13 @@ permissions:
   contents: write
   id-token: write
 
+# 多路触发（create/push/release/workflow_dispatch）可能同时到达：
+# 相同 tag 的 run 排队串行执行，后启动的 run 在 "Check existing release"
+# 步骤发现版本已发布后直接跳过，从源头避免重复 publish。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
