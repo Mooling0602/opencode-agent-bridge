@@ -1,0 +1,146 @@
+# 发布工作流（基于工作区通用模板，见 /home/agent/workspace/RELEASE.md）
+#
+# 触发：workflow_dispatch / 创建 tag / 推送 tag / 发布 Release（四路，幂等防重）。
+# 约束：tag 无 v 前缀、严格 MAJOR.MINOR.PATCH（预发布为 -rcN）；tag 必须打在
+#       发行提交上（message == "release: v{tag}"）；changelog 需含 "## {tag}" 章节。
+# npm 发布走 OIDC（Trusted Publisher，npmjs.com 已配置本仓库 + 本 workflow）。
+name: Release
+
+on:
+  workflow_dispatch:
+  create:
+    tags: ["[0-9]*"]
+  push:
+    tags: ["[0-9]*"]
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release commit
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-?rc[0-9]+)?$ ]]; then
+            echo "Invalid release tag: $tag" >&2
+            exit 1
+          fi
+
+          subject="$(git log -1 --format=%s)"
+          expected="release: v${tag}"
+          if [[ "$subject" != "$expected" ]]; then
+            echo "Tag ${tag} must point to commit message '${expected}', got '${subject}'." >&2
+            exit 1
+          fi
+
+      - name: Check existing release
+        id: check
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          code="$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${tag}")"
+          if [[ "$code" == "200" ]]; then
+            echo "Release ${tag} already exists, skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.skip == 'false'
+        with:
+          node-version: "22.x"
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.check.outputs.skip == 'false'
+        run: npm ci
+
+      - name: Type check
+        if: steps.check.outputs.skip == 'false'
+        run: npm run typecheck
+
+      - name: Test
+        if: steps.check.outputs.skip == 'false'
+        run: npm test
+
+      - name: Build
+        if: steps.check.outputs.skip == 'false'
+        run: npm run build
+
+      - name: Check npm version
+        id: npmcheck
+        if: steps.check.outputs.skip == 'false'
+        shell: bash
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$version" != "${GITHUB_REF_NAME}" ]]; then
+            echo "package.json version ${version} does not match tag ${GITHUB_REF_NAME}." >&2
+            exit 1
+          fi
+          if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            echo "${name}@${version} already published, skipping npm publish."
+            echo "npm-skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm-skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm (OIDC)
+        if: steps.check.outputs.skip == 'false' && steps.npmcheck.outputs.npm-skip == 'false'
+        run: npx --yes --package npm@11 npm publish --access public
+
+      - name: Prepare release notes
+        if: steps.check.outputs.skip == 'false'
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          mapfile -t tags < <(git for-each-ref --sort=creatordate --format='%(refname:strip=2)' refs/tags)
+          tag_count="${#tags[@]}"
+
+          if (( tag_count == 0 )); then
+            echo "No tags found in repository." >&2
+            exit 1
+          fi
+
+          if (( tag_count == 1 )); then
+            compare_link="$(python3 .github/scripts/get_link.py --compare "$tag")"
+          else
+            current_index=-1
+            for i in "${!tags[@]}"; do
+              if [[ "${tags[i]}" == "$tag" ]]; then
+                current_index="$i"
+                break
+              fi
+            done
+            if (( current_index <= 0 )); then
+              echo "Tag '${tag}' has no previous tag." >&2
+              exit 1
+            fi
+            previous_tag="${tags[current_index-1]}"
+            compare_link="$(python3 .github/scripts/get_link.py --compare "$previous_tag" "$tag")"
+          fi
+
+          python3 .github/scripts/changelog.py "${CHANGELOG:-doc/CHANGELOG.md}" \
+            "$tag" --compare-link "$compare_link" --output release-notes.md
+
+      - name: Publish release
+        if: steps.check.outputs.skip == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ github.ref_name }}
+          body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, 'rc') }}

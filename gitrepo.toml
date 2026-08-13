@@ -1,0 +1,10 @@
+[meta]
+name = "opencode-agent-bridge"
+author = [{ "github" = "Mooling0602" }]
+maintainers = []
+description = "OpenCode plugin for cross-session agent collaboration."
+main-branch = "main"
+license = "MIT"
+
+[platform]
+remote-hoster = [{ "github" = "https://github.com" }]

@@ -1,0 +1,35 @@
+# 通用 CI 模板：复制到项目的 .github/workflows/ci.yml 后按技术栈调整。
+#
+# 触发：workflow_dispatch（bot 通过 App token 调用）、pull_request。
+# 职责：安装依赖 → 类型检查 → 测试 → 构建。
+# 注意：Mooling0602 仓库用 commit.sh（REST API）提交不触发 push 事件，
+#       因此 CI 的主触发路径是 workflow_dispatch。
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── 以下为 Node/npm 示例，按项目技术栈调整 ──
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
