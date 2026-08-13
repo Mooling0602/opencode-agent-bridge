@@ -2,6 +2,14 @@
 
 Changelog contents for parsing in CI.
 
+## 0.1.2
+- All plugin messages (tool descriptions, instructions, notifications) switched to English.
+- Notification prefix renamed from `[System Notification]` to `[Agent Bridge Notification]`.
+- Tool descriptions clarify that no polling is needed after `agent_bridge_dispatch`.
+- README split into English and Chinese versions with a language switcher.
+
+**#full_changelog**
+
 ## 0.1.1
 - Version bump: release pipeline landing.
 - CI/release workflows, gitrepo.toml metadata, and changelog tooling added.
